@@ -1,0 +1,48 @@
+#define F_CPU 1000000UL
+#define __DELAY_BACKWARD_COMPATIBLE__ 
+#include <avr/io.h>
+#include <util/delay.h>
+#include <stdlib.h>
+
+void ADC_Init()
+{
+	DDRA=0x0;			/* Make ADC port as input */
+	ADCSRA = 0x87;			/* Enable ADC, fr/128  */
+	ADMUX = 0x40;			/* Vref: Avcc, ADC channel: 0 */
+}
+
+int ADC_Read(char channel)
+{
+	int Ain,AinLow,Aconv;
+	float Afloat;
+	
+	ADMUX=ADMUX|(channel & 0x0f);	/* Set input channel to read */
+
+	ADCSRA |= (1<<ADSC);		/* Start conversion */
+	while((ADCSRA&(1<<ADIF))== 0);	/* Monitor end of conversion interrupt */
+	
+	_delay_us(10);
+	AinLow = (int)ADCL;		/* Read lower byte*/
+	Ain = (int)ADCH*256;		/* Read higher 2 bits and 
+					Multiply with weight */
+	Afloat = Ain + AinLow;	
+	Aconv = 300+3.61*Afloat;   /* (4000-300)/(1024-0) = 3.61; Mapping the voltage between 300 to 4000 */
+				
+	return (Aconv);
+}
+
+
+
+int main(void)
+{   int value;
+	DDRC=0XFF;
+	ADC_Init();
+	while (1)
+	{
+		value =ADC_Read(0);
+		PORTC=0X03; 
+		_delay_us(value);
+		PORTC=0X01;
+		_delay_us(value);
+	}
+}
